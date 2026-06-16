@@ -1,4 +1,4 @@
-name: Claude Issue Analyzer
+name: Claude Issue Formatter
 
 on:
   issues:
