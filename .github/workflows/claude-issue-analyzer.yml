@@ -11,12 +11,15 @@ jobs:
       contents: read
       issues: write
       id-token: write
+
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
+
       - uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          direct_prompt: |
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          prompt: |
             Analyze this GitHub issue for the Tetris game project and take two actions:
 
             Issue #${{ github.event.issue.number }}: ${{ github.event.issue.title }}
