@@ -5,37 +5,48 @@ on:
     types: [opened, edited]
 
 jobs:
-  analyze-issue:
+  format-issue:
     runs-on: ubuntu-latest
     permissions:
       contents: read
       issues: write
       id-token: write
-
     steps:
-      - uses: actions/checkout@v5
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
 
-      - uses: anthropics/claude-code-action@v1
+      - name: Format issue with Claude
+        uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          claude_args: "--allowedTools Bash(gh issue *)"
           prompt: |
-            Analyze this GitHub issue for the Tetris game project and take two actions:
-
-            Issue #${{ github.event.issue.number }}: ${{ github.event.issue.title }}
-            Body: ${{ github.event.issue.body }}
-
-            Project context: This is a browser-based Tetris game with 3 files (index.html, style.css, game.js ~305 lines). No build step, no dependencies.
-
-            Step 1 — Apply labels using `gh issue edit`:
-            Choose the most fitting labels from: bug, enhancement, question, documentation, help-wanted, good-first-issue
-            Run: gh issue edit ${{ github.event.issue.number }} --repo ${{ github.repository }} --add-label "<chosen-labels>"
-
-            Step 2 — Post a diagnosis comment using `gh issue comment`:
-            Write a concise technical diagnosis in Spanish that includes:
-            - **Tipo de issue**: (bug / mejora / pregunta / etc.)
-            - **Área afectada**: which file(s) and function(s) are likely involved
-            - **Diagnóstico**: root cause or intent analysis
-            - **Pasos sugeridos para la solución**: concrete implementation steps
-
-            Run: gh issue comment ${{ github.event.issue.number }} --repo ${{ github.repository }} --body "<diagnosis>"
+            You are a GitHub issue formatter for a Tetris game project (vanilla JS/HTML/CSS, no dependencies).
+            An issue was just ${{ github.event.action }} with the following details:
+            - Issue number: #${{ github.event.issue.number }}
+            - Title: ${{ github.event.issue.title }}
+            - Body: ${{ github.event.issue.body }}
+            - Author: ${{ github.event.issue.user.login }}
+            Your tasks:
+            1. **Add labels** based on the issue content. Use only these labels:
+               - `bug` — something is broken or behaving incorrectly
+               - `enhancement` — new feature or improvement request
+               - `question` — asking for help or clarification
+               - `documentation` — docs need updating
+               - `good first issue` — simple, beginner-friendly task
+               - `duplicate` — if it seems like a known/repeated problem
+            2. **Post a comment** on the issue that includes:
+               - A brief, friendly summary of what the issue is about (1-2 sentences)
+               - A "Formatted Report" section with:
+                 - **Type**: Bug / Feature Request / Question / Other
+                 - **Summary**: one clear sentence describing the problem or request
+                 - **Steps to reproduce** (for bugs): list them if not provided, ask the user to provide them if it's a bug
+                 - **Expected behavior** (for bugs): what should happen
+                 - **Suggested labels**: the labels you applied and why
+               - A closing note thanking the contributor
+            Use the `gh` CLI to apply labels and post the comment. Example commands:
+              gh issue edit ${{ github.event.issue.number }} --add-label "bug" --repo ${{ github.repository }}
+              gh issue comment ${{ github.event.issue.number }} --body "..." --repo ${{ github.repository }}
+            Be concise, helpful, and friendly. Do not over-engineer the response.
