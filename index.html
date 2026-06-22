@@ -10,25 +10,77 @@
   <div class="wrapper">
     <h1 class="game-title">TETRIS</h1>
     <div class="game-container">
+
+      <!-- LEFT PANEL: Hold -->
+      <div class="left-panel">
+        <div class="panel-section">
+          <span class="label">HOLD</span>
+          <span class="sublabel">C / Shift</span>
+          <canvas id="hold-canvas" width="80" height="80"></canvas>
+        </div>
+
+        <div class="panel-section">
+          <span class="label">MODO</span>
+          <button id="mode-btn" class="mode-btn">NORMAL</button>
+        </div>
+
+        <div class="panel-section" id="challenge-section">
+          <span class="label">DESAFÍO</span>
+          <span class="challenge-info" id="challenge-info" style="display:none"></span>
+        </div>
+
+        <div class="panel-section">
+          <span class="label">HABILIDADES</span>
+          <ul class="ability-list">
+            <li><kbd>1</kbd> Preview ×5</li>
+            <li><kbd>2</kbd> Swap pieza</li>
+            <li><kbd>3</kbd> Time slow</li>
+            <li><kbd>4</kbd> Deshacer</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- BOARD -->
       <canvas id="board" width="300" height="600"></canvas>
 
+      <!-- RIGHT PANEL -->
       <aside class="panel">
         <div class="panel-section">
           <span class="label">SCORE</span>
           <span class="value" id="score">0</span>
         </div>
-        <div class="panel-section">
-          <span class="label">LINES</span>
-          <span class="value" id="lines">0</span>
-        </div>
-        <div class="panel-section">
-          <span class="label">LEVEL</span>
-          <span class="value" id="level">1</span>
+
+        <div class="panel-row">
+          <div class="panel-section half">
+            <span class="label">LÍNEAS</span>
+            <span class="value" id="lines">0</span>
+          </div>
+          <div class="panel-section half">
+            <span class="label">NIVEL</span>
+            <span class="value" id="level">1</span>
+          </div>
         </div>
 
         <div class="panel-section">
-          <span class="label">NEXT</span>
-          <canvas id="next-canvas" width="120" height="120"></canvas>
+          <span class="label">COMBO</span>
+          <span class="value combo-value" id="combo" style="opacity:0.3">×1</span>
+        </div>
+
+        <div class="panel-section">
+          <span class="label">ENERGÍA</span>
+          <div class="energy-bar-wrap">
+            <div class="energy-fill" id="energy-fill"></div>
+          </div>
+          <span class="energy-label" id="energy-label">0%</span>
+        </div>
+
+        <div id="status-msg" class="status-msg"></div>
+
+        <div class="panel-section">
+          <span class="label">SIGUIENTE</span>
+          <div id="next-wrap" class="next-wrap">
+            <canvas id="next-canvas" width="80" height="450"></canvas>
+          </div>
         </div>
 
         <div class="panel-section">
@@ -46,9 +98,11 @@
           <span class="label">CONTROLS</span>
           <ul>
             <li><kbd>←</kbd><kbd>→</kbd> mover</li>
-            <li><kbd>↑</kbd> rotar</li>
+            <li><kbd>↑</kbd><kbd>X</kbd> rotar CW</li>
+            <li><kbd>Z</kbd> rotar CCW</li>
             <li><kbd>↓</kbd> bajar</li>
             <li><kbd>Space</kbd> caída</li>
+            <li><kbd>C</kbd> hold</li>
             <li><kbd>P</kbd> pausa</li>
           </ul>
         </div>
