@@ -96,6 +96,12 @@ const overlay     = document.getElementById('overlay');
 const overlayTitle = document.getElementById('overlay-title');
 const overlayScore = document.getElementById('overlay-score');
 const restartBtn  = document.getElementById('restart-btn');
+const pauseMenu   = document.getElementById('pause-menu');
+const resumeBtn   = document.getElementById('resume-btn');
+const pauseRestartBtn = document.getElementById('pause-restart-btn');
+const controlsToggleBtn = document.getElementById('controls-toggle-btn');
+const controlsPanel = document.getElementById('controls-panel');
+const startLevelSelect = document.getElementById('start-level-select');
 const energyFill  = document.getElementById('energy-fill');
 const energyLabel = document.getElementById('energy-label');
 const statusMsg   = document.getElementById('status-msg');
@@ -119,6 +125,7 @@ let gameMode;
 let challengeStart, garbageAccum, linesSinceLastPowerup;
 let undoState;
 let pendingSmallPiece, statusTimeout;
+let challengeLineTarget;
 
 // ══════════════════════════════════════════════════════
 // PIECE FACTORY
@@ -481,7 +488,7 @@ function updateChallengeInfo() {
   if (!challengeInfo) return;
   if (gameMode === '40lines') {
     const rem = Math.max(0, CFG.CHALLENGE_TIME_MS - (performance.now() - challengeStart));
-    const need = Math.max(0, CFG.CHALLENGE_LINES - lines);
+    const need = Math.max(0, challengeLineTarget - lines);
     challengeInfo.textContent = `${Math.ceil(rem / 1000)}s | ${need}L restantes`;
     challengeInfo.style.display = '';
   } else if (gameMode === 'garbage') {
@@ -684,7 +691,7 @@ const ChallengeManager = {
         endGame(false, 'TIEMPO AGOTADO');
         return;
       }
-      if (lines >= CFG.CHALLENGE_LINES) {
+      if (lines >= challengeLineTarget) {
         endGame(true, '¡VICTORIA!');
       }
     }
@@ -699,6 +706,8 @@ function endGame(win = false, msg = 'GAME OVER') {
   cancelAnimationFrame(animId);
   overlayTitle.textContent = win ? '¡VICTORIA!' : msg;
   overlayScore.textContent = `Puntuación: ${score.toLocaleString()}`;
+  pauseMenu.classList.add('hidden');
+  restartBtn.classList.remove('hidden');
   overlay.classList.remove('hidden');
 }
 
@@ -708,11 +717,16 @@ function togglePause() {
   if (!paused) {
     lastTime = performance.now();
     overlay.classList.add('hidden');
+    pauseMenu.classList.add('hidden');
+    restartBtn.classList.remove('hidden');
     animId = requestAnimationFrame(loop);
   } else {
     cancelAnimationFrame(animId);
     overlayTitle.textContent = 'PAUSA';
     overlayScore.textContent = '';
+    restartBtn.classList.add('hidden');
+    pauseMenu.classList.remove('hidden');
+    controlsPanel.classList.add('hidden');
     overlay.classList.remove('hidden');
   }
 }
@@ -749,21 +763,24 @@ function loop(ts) {
 }
 
 function init() {
+  const savedStartLevel = parseInt(localStorage.getItem('tetris-start-level') || '1', 10);
+  const startLevel      = Math.max(1, Math.min(15, isNaN(savedStartLevel) ? 1 : savedStartLevel));
+
   board               = createBoard();
   queue               = [];
   score               = 0;
-  lines               = 0;
-  level               = 1;
+  lines               = (startLevel - 1) * 10;
+  level               = startLevel;
   paused              = false;
   gameOver            = false;
-  dropInterval        = 1000;
+  slowUntil           = 0;
+  frozenUntil         = 0;
+  dropInterval        = computeDropInterval();
   dropAccum           = 0;
   lastTime            = performance.now();
   combo               = 0;
   lastWasTetrisOrTspin = false;
   lastActionRotation  = false;
-  frozenUntil         = 0;
-  slowUntil           = 0;
   energy              = 0;
   previewCount        = CFG.DEFAULT_PREVIEW;
   abilityExpanded     = false;
@@ -774,6 +791,7 @@ function init() {
   undoState           = null;
   garbageAccum        = 0;
   challengeStart      = performance.now();
+  challengeLineTarget = lines + CFG.CHALLENGE_LINES;
 
   nextWrap.classList.remove('expanded');
 
@@ -783,6 +801,9 @@ function init() {
   updateHUD();
   drawNext();
   drawHold();
+  pauseMenu.classList.add('hidden');
+  controlsPanel.classList.add('hidden');
+  restartBtn.classList.remove('hidden');
   overlay.classList.add('hidden');
   cancelAnimationFrame(animId);
   animId = requestAnimationFrame(loop);
@@ -792,7 +813,7 @@ function init() {
 // INPUT
 // ══════════════════════════════════════════════════════
 document.addEventListener('keydown', e => {
-  if (e.code === 'KeyP') { togglePause(); return; }
+  if (e.code === 'KeyP' || e.code === 'Escape') { togglePause(); return; }
   if (paused || gameOver) return;
 
   // Invert rotation at high levels in normal/garbage modes
@@ -874,5 +895,17 @@ modeBtn.textContent = MODE_LABELS[gameMode] || 'NORMAL';
 
 modeBtn.addEventListener('click', cycleMode);
 restartBtn.addEventListener('click', init);
+
+// Pause menu buttons
+resumeBtn.addEventListener('click', () => { if (paused) togglePause(); });
+pauseRestartBtn.addEventListener('click', () => { pauseMenu.classList.add('hidden'); restartBtn.classList.remove('hidden'); init(); });
+controlsToggleBtn.addEventListener('click', () => { controlsPanel.classList.toggle('hidden'); });
+
+// Start level selector — persist to localStorage
+const savedLevel = localStorage.getItem('tetris-start-level') || '1';
+startLevelSelect.value = savedLevel;
+startLevelSelect.addEventListener('change', () => {
+  localStorage.setItem('tetris-start-level', startLevelSelect.value);
+});
 
 init();
