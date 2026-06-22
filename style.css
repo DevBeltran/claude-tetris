@@ -359,6 +359,40 @@ kbd {
   transition: color 0.2s;
 }
 
+/* ---- Skin select ---- */
+.skin-select {
+  background: var(--kbd-bg);
+  border: 1px solid var(--kbd-border);
+  border-radius: 4px;
+  color: var(--value-color);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  padding: 4px 6px;
+  cursor: pointer;
+  font-family: 'Courier New', Courier, monospace;
+  width: 100%;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.skin-select:focus {
+  outline: none;
+  border-color: var(--value-color);
+}
+
+/* Neon skin canvas glow */
+body.skin-neon #board {
+  box-shadow: 0 0 30px rgba(0, 255, 255, 0.4), 0 0 60px rgba(0, 255, 255, 0.15);
+  border-color: #00ffff44;
+  background: #000;
+}
+
+body.skin-neon #hold-canvas,
+body.skin-neon #next-canvas {
+  background: #000;
+  border-color: #00ffff22;
+}
+
 /* ---- Overlay ---- */
 .overlay {
   position: absolute;
