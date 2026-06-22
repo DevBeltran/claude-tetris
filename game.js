@@ -104,18 +104,25 @@ const challengeInfo = document.getElementById('challenge-info');
 const themeToggle = document.getElementById('theme-toggle');
 const themeLabel  = document.getElementById('theme-label');
 const nextWrap    = document.getElementById('next-wrap');
+const recordSection    = document.getElementById('record-section');
+const recordNameInput  = document.getElementById('record-name-input');
+const saveRecordBtn    = document.getElementById('save-record-btn');
+const recordsTable     = document.getElementById('records-table');
+const recordsTbody     = document.getElementById('records-tbody');
+const resetRecordsBtn  = document.getElementById('reset-records-btn');
 
 // ══════════════════════════════════════════════════════
 // STATE
 // ══════════════════════════════════════════════════════
 let board, current, queue, hold, holdUsed;
 let score, lines, level, paused, gameOver, lastTime, dropAccum, dropInterval, animId;
-let combo, lastWasTetrisOrTspin;
+let combo, lastWasTetrisOrTspin, maxCombo;
 let lastActionRotation;
 let frozenUntil, slowUntil;
 let energy, previewCount;
 let abilityExpanded, abilityExpandUntil;
 let gameMode;
+let pendingFinals = null; // captured score/maxCombo/lines at endGame time
 let challengeStart, garbageAccum, linesSinceLastPowerup;
 let undoState;
 let pendingSmallPiece, statusTimeout;
@@ -259,6 +266,7 @@ function clearLines(noComboReset = false) {
   if (b2b) pts = Math.floor(pts * (1 + CFG.B2B_BONUS));
   if (perfectClear) pts += CFG.PERFECT_CLEAR_BONUS * level;
   combo++;
+  if (combo > maxCombo) maxCombo = combo;
   pts = Math.floor(pts * (1 + (combo - 1) * 0.5));
   score += pts;
 
@@ -692,13 +700,87 @@ const ChallengeManager = {
 };
 
 // ══════════════════════════════════════════════════════
+// RECORDS
+// ══════════════════════════════════════════════════════
+const RECORDS_KEY = 'tetris-records';
+const MAX_RECORDS = 5;
+
+function loadRecords() {
+  try {
+    return JSON.parse(localStorage.getItem(RECORDS_KEY)) || [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function saveRecord(name, sc, mc, ln) {
+  const records = loadRecords();
+  const date = new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' });
+  records.push({ name: name.trim() || 'Anónimo', score: sc, combo: mc, lines: ln, date });
+  records.sort((a, b) => b.score - a.score);
+  records.splice(MAX_RECORDS);
+  localStorage.setItem(RECORDS_KEY, JSON.stringify(records));
+  return records;
+}
+
+function renderRecords(highlightIdx = -1) {
+  const records = loadRecords();
+  if (!records.length) {
+    recordsTable.classList.add('hidden');
+    resetRecordsBtn.classList.add('hidden');
+    return;
+  }
+
+  recordsTbody.innerHTML = '';
+  records.forEach((rec, i) => {
+    const tr = document.createElement('tr');
+    if (i === highlightIdx) tr.classList.add('record-highlight');
+    tr.innerHTML = `<td>${i + 1}</td><td>${escHtml(rec.name)}</td><td>${rec.score.toLocaleString()}</td><td>×${rec.combo}</td><td>${rec.lines}</td><td>${escHtml(rec.date)}</td>`;
+    recordsTbody.appendChild(tr);
+  });
+
+  recordsTable.classList.remove('hidden');
+  resetRecordsBtn.classList.remove('hidden');
+}
+
+function escHtml(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ══════════════════════════════════════════════════════
 // GAME FLOW
 // ══════════════════════════════════════════════════════
 function endGame(win = false, msg = 'GAME OVER') {
   gameOver = true;
   cancelAnimationFrame(animId);
+  draw();
+  // Capture mutable globals now before init() can reset them
+  const finalScore = score;
+  const finalMaxCombo = maxCombo;
+  const finalLines = lines;
   overlayTitle.textContent = win ? '¡VICTORIA!' : msg;
-  overlayScore.textContent = `Puntuación: ${score.toLocaleString()}`;
+  overlayScore.textContent = `Puntuación: ${finalScore.toLocaleString()}`;
+
+  // Show name input only on actual game over (not pause)
+  // Check if score qualifies for top 5
+  const records = loadRecords();
+  const qualifies = records.length < MAX_RECORDS || finalScore >= (records[records.length - 1]?.score ?? 0);
+
+  recordNameInput.value = '';
+  recordSection.classList.toggle('hidden', !qualifies);
+
+  if (!qualifies) {
+    // Just render the table without highlighting
+    renderRecords();
+  } else {
+    // Hide table until saved; wire save handler with captured finals
+    recordsTable.classList.add('hidden');
+    resetRecordsBtn.classList.add('hidden');
+    pendingFinals = { score: finalScore, maxCombo: finalMaxCombo, lines: finalLines };
+    // Focus input after overlay shown
+    setTimeout(() => recordNameInput.focus(), 50);
+  }
+
   overlay.classList.remove('hidden');
 }
 
@@ -713,6 +795,9 @@ function togglePause() {
     cancelAnimationFrame(animId);
     overlayTitle.textContent = 'PAUSA';
     overlayScore.textContent = '';
+    recordSection.classList.add('hidden');
+    recordsTable.classList.add('hidden');
+    resetRecordsBtn.classList.add('hidden');
     overlay.classList.remove('hidden');
   }
 }
@@ -760,6 +845,7 @@ function init() {
   dropAccum           = 0;
   lastTime            = performance.now();
   combo               = 0;
+  maxCombo            = 0;
   lastWasTetrisOrTspin = false;
   lastActionRotation  = false;
   frozenUntil         = 0;
@@ -874,5 +960,31 @@ modeBtn.textContent = MODE_LABELS[gameMode] || 'NORMAL';
 
 modeBtn.addEventListener('click', cycleMode);
 restartBtn.addEventListener('click', init);
+
+// Save record on button click or Enter key
+function handleSaveRecord() {
+  const name = recordNameInput.value.trim() || 'Anónimo';
+  const { score: sc, maxCombo: mc, lines: ln } = pendingFinals || { score, maxCombo, lines };
+  const saved = saveRecord(name, sc, mc, ln);
+  // Find the index of the newly saved entry to highlight it correctly even on ties
+  const highlightIdx = saved.findIndex(r => r.name === (name) && r.score === sc && r.combo === mc && r.lines === ln);
+  pendingFinals = null;
+  recordSection.classList.add('hidden');
+  renderRecords(highlightIdx);
+}
+
+saveRecordBtn.addEventListener('click', handleSaveRecord);
+recordNameInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') { e.preventDefault(); handleSaveRecord(); }
+});
+
+resetRecordsBtn.addEventListener('click', () => {
+  localStorage.removeItem(RECORDS_KEY);
+  recordsTable.classList.add('hidden');
+  resetRecordsBtn.classList.add('hidden');
+});
+
+// Show records table on start screen
+renderRecords();
 
 init();
